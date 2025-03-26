@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.celery.replicaCount | default 1 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: celery
+  template:
+    metadata:
+      labels:
+        app: celery
+        release: {{ .Release.Name }}
+      annotations:
+        checksum/image: {{ .Values.celery.image.repository }}:{{ .Values.celery.image.tag | sha256sum }}
+    spec:
+      containers:
+      - name: celery
+        image: "{{ .Values.celery.image.repository }}:{{ .Values.celery.image.tag }}"
+        imagePullPolicy: "{{ .Values.celery.image.pullPolicy }}"
+        resources:
+          requests:
+            memory: "{{ .Values.celery.resources.requests.memory }}"
+            cpu: "{{ .Values.celery.resources.requests.cpu }}"
+          limits:
+            memory: "{{ .Values.celery.resources.limits.memory }}"
+            cpu: "{{ .Values.celery.resources.limits.cpu }}"
+        env:
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_HOST
+        - name: ENVIRONMENT
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: ENVIRONMENT
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_HOST
+        - name: AUTHENTICATION_SHARD_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: AUTHENTICATION_SHARD_DB_NAME
+        - name: GEODISCOUNTS_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GEODISCOUNTS_DB_NAME
+        - name: VECTOR_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: VECTOR_DB_NAME
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_NAME
+        - name: DO_SPACES_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DO_SPACES_ACCESS_KEY_ID
+        - name: DO_SPACES_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DO_SPACES_SECRET_ACCESS_KEY
+        - name: BASE_DOMAIN
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: BASE_DOMAIN
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CELERY_BROKER_URL
+        - name: DISHPAL_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DISHPAL_EMAIL_PASSWORD
+        - name: DISHPAL_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DISHPAL_EMAIL
+        - name: CELERY_DB
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: CELERY_DB
+
+        - name: SERVICE_TYPE
+          value: "celery"
+
+        - name: CELERY_APP_NAME
+          value: "coupon_core"

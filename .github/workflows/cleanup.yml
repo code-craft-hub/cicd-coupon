@@ -1,0 +1,31 @@
+name: Docker Cleanup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Runs every day at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log Docker disk usage before cleanup
+        run: docker system df
+
+      - name: Remove unused containers
+        run: docker container prune -f
+
+      - name: Remove unused images
+        run: docker image prune -f
+
+      - name: Remove unused volumes
+        run: docker volume prune -f
+
+      - name: Remove unused networks
+        run: docker network prune -f
+
+      - name: Remove all dangling images, containers, and cache
+        run: docker system prune -af
+
+      - name: Log Docker disk usage after cleanup
+        run: docker system df

@@ -1,0 +1,108 @@
+name: Build Docker Images
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'The commit SHA to use as a tag (use "latest" to tag as latest)'
+        required: false
+        type: string
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ steps.get_version.outputs.version_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        run: |
+          docker buildx create --use
+          docker buildx inspect --bootstrap
+
+      - name: Get version information
+        id: get_version
+        run: |
+          # If a tag is provided as an input, use it; otherwise, auto-generate one.
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG=${{ inputs.tag }}
+          else
+            TAG=$(date +%Y%m%d)-$(echo "${GITHUB_SHA}" | cut -c1-7)
+          fi
+
+          if [ "$TAG" = "latest" ]; then
+            echo "Using 'latest' tag for Docker images."
+          else
+            echo "Using generated version tag: $TAG"
+          fi
+
+          echo "VERSION_TAG=${TAG}" >> $GITHUB_ENV
+          echo "version_tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Debug version tag
+        run: 'echo "Generated version tag is: ${{ env.VERSION_TAG }}"'
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push base image (shared layers)
+        run: |
+          docker buildx build \
+            -f docker/Dockerfile.core \
+            --build-arg SERVICE_TYPE=base \
+            -t fakay96/coupon-base:${{ env.VERSION_TAG }} \
+            --platform linux/amd64 \
+            --no-cache \
+            --push .
+
+      - name: Build and push the backend image
+        run: |
+          docker buildx build \
+            -f docker/Dockerfile.core \
+            --build-arg SERVICE_TYPE=backend \
+            --cache-from type=registry,ref=fakay96/coupon-base:${{ env.VERSION_TAG }} \
+            -t fakay96/coupon-core:${{ env.VERSION_TAG }} \
+            --platform linux/amd64 \
+            --push .
+
+      - name: Build and push the celery image
+        run: |
+          docker buildx build \
+            -f docker/Dockerfile.core \
+            --build-arg SERVICE_TYPE=celery \
+            --cache-from type=registry,ref=fakay96/coupon-base:${{ env.VERSION_TAG }} \
+            -t fakay96/coupon-celery:${{ env.VERSION_TAG }} \
+            --platform linux/amd64 \
+            --push .
+                
+      - name: Build and push the frontend image
+        run: |
+          docker buildx build \
+            -f docker/Dockerfile.frontend \
+            -t fakay96/coupon-frontend:${{ env.VERSION_TAG }} \
+            --platform linux/amd64 \
+            --no-cache \
+            --push .
+
+      - name: Prune Docker resources after build
+        run: docker system prune --force --volumes
+
+      - name: Save version tag to file
+        run: echo "${{ env.VERSION_TAG }}" > version.txt
+
+      - name: Upload version file as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: version
+          path: version.txt

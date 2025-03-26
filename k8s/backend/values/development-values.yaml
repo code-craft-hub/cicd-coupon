@@ -1,0 +1,87 @@
+namespace: development
+
+backend:
+  replicaCount: 1
+
+  image:
+    repository: fakay96/backend  
+    tag: ""
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+  nodeSelector:
+    workload: backend
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: workload
+            operator: In
+            values:
+            - backend
+
+  env:
+    environment: staging
+    logLevel: debug
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: dishpal.ai
+      paths:
+        - path: /api
+      pathType: Prefix
+  tls:
+    - hosts:
+        - dishpal.ai
+      secretName: dishpal-ai-tls
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+redis:
+  enabled: true
+  replicaCount: 1
+  imageTag: "7.0"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    enabled: false
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 40
+  targetMemoryUtilizationPercentage: 80
+
+tolerations: []
+
+affinity: {}

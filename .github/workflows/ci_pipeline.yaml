@@ -1,0 +1,41 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ""  
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deploy-staging:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version_tag: ${{ needs.build.outputs.version_tag }}
+      environment: "staging"
+    secrets:
+      KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_CONTENT }}
+      KUBERNETES_SECRETS: ${{ secrets.KUBERNETES_SECRETS }}
+  deploy-production:
+    needs: deploy-staging
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version_tag: ${{ needs.build.outputs.version_tag }}
+      environment: "production"
+    secrets:
+      KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_CONTENT }}
+      KUBERNETES_SECRETS: ${{ secrets.KUBERNETES_SECRETS }}
+  notify_failure:
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Notify about failure
+        run: echo "CI Pipeline failed. Check logs for more details."
